@@ -11,6 +11,8 @@
 #ifdef _WIN32
 #include <WinSock2.h>
 #include <ws2tcpip.h>
+#elif defined(__QNX__)
+#include <unistd.h>
 #else
 #include <unistd.h>
 #include <sys/eventfd.h>
@@ -22,7 +24,7 @@ namespace CommonAPI {
 namespace SomeIP {
 
 Watch::Watch(const std::shared_ptr<Connection>& _connection) :
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__QNX__)
         pipeValue_(4)
 #else
         eventFd_(0),
@@ -153,6 +155,32 @@ Watch::Watch(const std::shared_ptr<Connection>& _connection) :
         WSACleanup();
     }
     pollFileDescriptor_.fd = pipeFileDescriptors_[0];
+#elif defined(__QNX__)
+    // replace Linux evendfd usage with pipe usage from POSIX
+
+    // create the pipe
+    if (pipe(pipeFileDescriptors_) == -1)
+    {
+        std::perror(__func__);
+    }
+    else
+    {
+        int flags;
+        for (auto fileDesc : pipeFileDescriptors_)
+        {
+            // read the file descriptor flags
+            flags = fcntl(fileDesc, F_GETFL);
+            // add the non block flag only, since pipe does not have semaphore flag
+            flags |= O_NONBLOCK;
+
+            // write the flags and check for errors
+            if (fcntl(fileDesc, F_SETFL, flags) == -1)
+            {
+                std::perror(__func__);
+            }
+        }
+    }
+    pollFileDescriptor_.fd = pipeFileDescriptors_[0];
 #else
     eventFd_ = eventfd(0, EFD_NONBLOCK | EFD_SEMAPHORE);
     if (eventFd_ == -1) {
@@ -178,6 +206,9 @@ Watch::~Watch() {
     // cleanup
     closesocket(pipeFileDescriptors_[0]);
     WSACleanup();
+#elif defined (__QNX__)
+    close(pipeFileDescriptors_[0]);
+    close(pipeFileDescriptors_[1]);
 #else
     close(eventFd_);
 #endif
@@ -236,6 +267,11 @@ void Watch::pushQueue(std::shared_ptr<QueueEntry> _queueEntry) {
             printf("send failed with error: %d\n", error);
         }
     }
+#elif defined (__QNX__)
+    if (write(pipeFileDescriptors_[1], &pipeValue_, sizeof(pipeValue_)) == -1)
+    {
+        std::perror(__func__);
+    }
 #else
     while (write(eventFd_, &eventFdValue_, sizeof(eventFdValue_)) == -1) {
         if (errno != EAGAIN && errno != EINTR) {
@@ -263,6 +299,12 @@ void Watch::popQueue() {
     }
     else {
         printf("recv failed with error: %d\n", WSAGetLastError());
+    }
+#elif defined (__QNX__)
+    std::uint64_t readValue(0);
+    if (read(pipeFileDescriptors_[0], &readValue, sizeof(readValue)) == -1)
+    {
+        std::perror(__func__);
     }
 #else
     std::uint64_t readValue(0);

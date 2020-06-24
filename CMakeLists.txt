@@ -30,10 +30,10 @@ SET(DEFAULT_SEND_TIMEOUT "5000" CACHE STRING "default send timeout")
 message(STATUS "DEFAULT_SEND_TIMEOUT is set to value: ${DEFAULT_SEND_TIMEOUT} ms")
 
 IF(USE_FILE)
-  add_definitions(-DUSE_FILE)
+add_definitions(-DUSE_FILE)
 ENDIF(USE_FILE)
 IF(USE_CONSOLE)
-  add_definitions(-DUSE_CONSOLE)
+add_definitions(-DUSE_CONSOLE)
 ENDIF(USE_CONSOLE)
 
 add_definitions(-DDEFAULT_SEND_TIMEOUT=${DEFAULT_SEND_TIMEOUT})
@@ -41,32 +41,36 @@ add_definitions(-DDEFAULT_SEND_TIMEOUT=${DEFAULT_SEND_TIMEOUT})
 # Set a default build type if none was specified
 set(default_build_type "RelWithDebInfo")
 if(NOT CMAKE_BUILD_TYPE)
-  message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
-  set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
-  # Set the possible values of build type for cmake-gui
-  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+    message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+    set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
+    # Set the possible values of build type for cmake-gui
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
 if (MSVC) 
-# Boost
-find_package( Boost 1.54 COMPONENTS system thread log REQUIRED )
-if(Boost_FOUND)
-  if(Boost_LIBRARY_DIR)
-    MESSAGE( STATUS "Boost_LIBRARY_DIR not empty using it: ${Boost_LIBRARY_DIR}" )
-  else()
-    if(BOOST_LIBRARYDIR)
-      MESSAGE( STATUS "Boost_LIBRARY_DIR empty but BOOST_LIBRARYDIR is set setting Boost_LIBRARY_DIR to: ${BOOST_LIBRARYDIR}" )
-      set(Boost_LIBRARY_DIR ${BOOST_LIBRARYDIR})
+    # Boost
+    find_package( Boost 1.54 COMPONENTS system thread log REQUIRED )
+    if(Boost_FOUND)
+        if(Boost_LIBRARY_DIR)
+            MESSAGE( STATUS "Boost_LIBRARY_DIR not empty using it: ${Boost_LIBRARY_DIR}" )
+        else()
+            if(BOOST_LIBRARYDIR)
+                MESSAGE( STATUS "Boost_LIBRARY_DIR empty but BOOST_LIBRARYDIR is set setting Boost_LIBRARY_DIR to: ${BOOST_LIBRARYDIR}" )
+                set(Boost_LIBRARY_DIR ${BOOST_LIBRARYDIR})
+            endif()
+        endif()
+    else()
+        MESSAGE( STATUS "Boost was not found!")
     endif()
-  endif()
+    include_directories( ${Boost_INCLUDE_DIR} )
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_SECURE_NO_WARNINGS /wd4503")
+    link_directories(${Boost_LIBRARY_DIR})
 else()
-  MESSAGE( STATUS "Boost was not found!")
-endif()
-include_directories( ${Boost_INCLUDE_DIR} )
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_SECURE_NO_WARNINGS /wd4503")
-link_directories(${Boost_LIBRARY_DIR})
-else()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra -Wformat -Wformat-security -Wconversion -fexceptions -fstrict-aliasing -fstack-protector -fasynchronous-unwind-tables -fno-omit-frame-pointer -DCOMMONAPI_INTERNAL_COMPILATION -D_GLIBCXX_USE_NANOSLEEP -DBOOST_LOG_DYN_LINK -pthread")
+    if (${CMAKE_SYSTEM_NAME} MATCHES "QNX")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wconversion -fexceptions -fstrict-aliasing -fstack-protector -fasynchronous-unwind-tables -fno-omit-frame-pointer -DCOMMONAPI_INTERNAL_COMPILATION -D_GLIBCXX_USE_NANOSLEEP -DBOOST_LOG_DYN_LINK")
+    else()
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra -Wformat -Wformat-security -Wconversion -fexceptions -fstrict-aliasing -fstack-protector -fasynchronous-unwind-tables -fno-omit-frame-pointer -DCOMMONAPI_INTERNAL_COMPILATION -D_GLIBCXX_USE_NANOSLEEP -DBOOST_LOG_DYN_LINK -pthread")
+    endif (${CMAKE_SYSTEM_NAME} MATCHES "QNX")
 endif()
 
 SET(MAX_LOG_LEVEL "DEBUG" CACHE STRING "maximum log level")
@@ -80,8 +84,17 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCOMMONAPI_LOGLEVEL=COMMONAPI_LOGLEVEL_
 # Package config module not found message macro
 macro (pkg_config_module_not_found_message PKG_CONFIG_MODULE)
     message (FATAL_ERROR "pkg-config could not find the required module ${PKG_CONFIG_MODULE}!"
-      " Please adjust your PKG_CONFIG_PATH environment variable accordingly.")
+        " Please adjust your PKG_CONFIG_PATH environment variable accordingly.")
 endmacro ()
+
+if (${CMAKE_SYSTEM_NAME} MATCHES "QNX")
+    set (OS_FLAG "-DQNX")
+endif (${CMAKE_SYSTEM_NAME} MATCHES "QNX")
+
+if (NOT MSVC)
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OS_FLAG}")
+endif()
+# END TEMPORARY WORKAROUND #
 
 ###################################################################################################
 # see http://www.cmake.org/Wiki/CMake/Tutorials/How_to_create_a_ProjectConfig.cmake_file
@@ -132,7 +145,7 @@ include_directories (
     ${Boost_INCLUDE_DIR}
     ${COMMONAPI_INCLUDE_DIRS}
     ${VSOMEIP_INCLUDE_DIRS}
-)
+    )
 
 file (GLOB CommonAPI-SomeIP_SRC "src/CommonAPI/SomeIP/*.cpp")
 list (SORT CommonAPI-SomeIP_SRC)
@@ -157,18 +170,18 @@ install (
     TARGETS CommonAPI-SomeIP
     # IMPORTANT: Add the CommonAPI-SomeIP library to the "export-set"
     EXPORT CommonAPI-SomeIPTargets
-	LIBRARY DESTINATION ${INSTALL_LIB_DIR}
-	RUNTIME DESTINATION ${INSTALL_BIN_DIR}
-	ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
+    LIBRARY DESTINATION ${INSTALL_LIB_DIR}
+    RUNTIME DESTINATION ${INSTALL_BIN_DIR}
+    ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
     PUBLIC_HEADER DESTINATION "${INSTALL_INCLUDE_DIR}/CommonAPI/SomeIP"
-)
+    )
 
 ##############################################################################
 # exporting, configuring and installing of cmake files
 
 # Add all targets to the build-tree export set
 export (TARGETS CommonAPI-SomeIP
-        FILE "${PROJECT_BINARY_DIR}/CommonAPI-SomeIPTargets.cmake")
+    FILE "${PROJECT_BINARY_DIR}/CommonAPI-SomeIPTargets.cmake")
 
 # Export the package for use from the build-tree
 # (this registers the build-tree with a global CMake-registry)
@@ -197,19 +210,19 @@ install (
     "${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CommonAPI-SomeIPConfig.cmake"
     "${PROJECT_BINARY_DIR}/CommonAPI-SomeIPConfigVersion.cmake"
     DESTINATION "${INSTALL_CMAKE_DIR}"
-)
+    )
 
 # Install the export set for use with the install-tree
 install (
     EXPORT CommonAPI-SomeIPTargets
     DESTINATION "${INSTALL_CMAKE_DIR}"
-)
+    )
 
 ##############################################################################
 # create pkg-config file
 if(NOT WIN32)
-        configure_file(CommonAPI-SomeIP.pc.in ${PROJECT_BINARY_DIR}/CommonAPI-SomeIP.pc @ONLY)
-        install(FILES ${PROJECT_BINARY_DIR}/CommonAPI-SomeIP.pc DESTINATION lib/pkgconfig)
+    configure_file(CommonAPI-SomeIP.pc.in ${PROJECT_BINARY_DIR}/CommonAPI-SomeIP.pc @ONLY)
+    install(FILES ${PROJECT_BINARY_DIR}/CommonAPI-SomeIP.pc DESTINATION lib/pkgconfig)
 endif()
 
 ##############################################################################

@@ -14,7 +14,7 @@
 #include <CommonAPI/SomeIP/Types.hpp>
 #include <vector>
 
-#if _WIN32
+#if defined(_WIN32) || defined(__QNX__)
     #define LITTLE_ENDIAN 1234
     #define BIG_ENDIAN 4321
 #endif
