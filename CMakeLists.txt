@@ -89,11 +89,9 @@ endmacro ()
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "QNX")
     set (OS_FLAG "-DQNX")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OS_FLAG}")
 endif (${CMAKE_SYSTEM_NAME} MATCHES "QNX")
 
-if (NOT MSVC)
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OS_FLAG}")
-endif()
 # END TEMPORARY WORKAROUND #
 
 ###################################################################################################
@@ -139,6 +137,7 @@ include_directories( ${Boost_INCLUDE_DIR} )
 
 find_package (vsomeip 2.10.0 REQUIRED)
 message(STATUS "vsomeip version: ${vsomeip_VERSION}")
+message(STATUS "VSOMEIP_INCLUDE_DIRS: ${VSOMEIP_INCLUDE_DIRS}")
 
 include_directories (
     include
